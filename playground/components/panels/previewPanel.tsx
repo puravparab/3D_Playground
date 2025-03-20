@@ -27,13 +27,12 @@ export default function ModelPreviewPanel({ modelUrl, onDragStart }: ModelPrevie
   
   return (
     <div className="absolute right-6 top-6 w-72 bg-white bg-opacity-75 backdrop-blur-sm shadow-lg z-10 p-4 flex flex-col rounded-lg">
-      <h2 className="text-xl font-bold mb-4">3D Model Preview</h2>
+      <h2 className="text-xl text-slate-700 font-bold mb-4">3D Model Preview</h2>
       
       <div 
         className="flex-1 border border-gray-300 rounded-md overflow-hidden relative h-48"
         ref={previewRef}
       >
-        {/* We'll just show a placeholder for the model - in a real app, you might want to render a preview */}
         <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-70">
           <img 
             ref={thumbnailRef}

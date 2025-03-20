@@ -90,17 +90,36 @@ export default function Scene() {
     }
   }, [])
 
-  // Function to handle file uploads and process via API
   const handleImageUpload = async (file: File) => {
     try {
-      setIsLoading(true)
+      setIsLoading(true);
+      
+      // Create a FormData object and append the file
+      const formData = new FormData();
+      formData.append('image', file);
+      
+      // Call your API route
+      const response = await fetch('/api/create', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to generate model');
+      }
+      
+      const result = await response.json();
+      console.log(await result)
+      setModelUrl(result.modelUrl);
+      
     } catch (error) {
-      console.error("Error processing image:", error)
+      console.error("Error generating 3D model:", error);
+      alert("Error generating 3D model. Please try again.");
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
-
+  };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
