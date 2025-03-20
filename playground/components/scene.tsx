@@ -1,20 +1,27 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import * as THREE from 'three'
 import { setupLights } from './lights'
 import { createSky } from './environment/sky'
 import { createGround } from './environment/ground'
 import { useOrbitControls } from '@/hooks/useOrbitControls'
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
+import UploadPanel from './panels/uploadPanel'
+import ModelPreviewPanel from './panels/previewPanel'
 
 export default function Scene() {
   const mountRef = useRef<HTMLDivElement>(null)
+  const sceneRef = useRef<THREE.Scene | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [modelUrl, setModelUrl] = useState<string | null>(null)
   
   useEffect(() => {
     if (!mountRef.current) return
     
     // Scene setup
     const scene = new THREE.Scene()
+    sceneRef.current = scene
     
     // Camera setup
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000)
@@ -82,6 +89,63 @@ export default function Scene() {
       }
     }
   }, [])
+
+  // Function to handle file uploads and process via API
+  const handleImageUpload = async (file: File) => {
+    try {
+      setIsLoading(true)
+    } catch (error) {
+      console.error("Error processing image:", error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    
+    if (!sceneRef.current) return
+    
+    const modelUrl = e.dataTransfer.getData('text/plain')
+    if (modelUrl) {
+      // Load the model into the scene
+      const loader = new GLTFLoader()
+      loader.load(
+        modelUrl,
+        (gltf) => {
+          const model = gltf.scene
+          
+          // Position the model in the center of the scene
+          model.position.set(0, 1, 0)
+          model.scale.set(1, 1, 1) // Adjust scale as needed
+          
+          // Add the model to the scene
+          sceneRef.current?.add(model)
+        },
+        (xhr) => {
+          console.log((xhr.loaded / xhr.total) * 100 + '% loaded')
+        },
+        (error) => {
+          console.error('An error happened while loading the model:', error)
+        }
+      )
+    }
+  }
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault()
+  }
   
-  return <div ref={mountRef} className="w-full h-screen" />
+  return (
+    <div 
+      ref={mountRef} 
+      className="w-full h-screen relative"
+      onDrop={handleDrop}
+      onDragOver={handleDragOver}
+    >
+      <UploadPanel onUpload={handleImageUpload} isLoading={isLoading} />
+      {modelUrl && <ModelPreviewPanel modelUrl={modelUrl} onDragStart={() => {}} />}
+    </div>
+  )
 }
