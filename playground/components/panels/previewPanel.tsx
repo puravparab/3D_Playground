@@ -403,13 +403,12 @@ export default function ModelPreviewPanel({
   }
   
   return (
-    <div className="absolute right-6 top-6 w-80 bg-white bg-opacity-75 backdrop-blur-sm shadow-lg z-10 p-4 flex flex-col rounded-lg max-h-3/4 overflow-hidden">
+    <div className="absolute right-6 top-6 w-80 bg-white bg-opacity-75 backdrop-blur-sm shadow-lg z-10 p-4 flex flex-col rounded-lg h-[calc(100vh-6rem)] overflow-hidden">
       <h2 className="text-xl text-slate-700 font-bold mb-2">History</h2>
       
       {storedModels.length > 0 && (
-        <div className="mt-4">
-          
-          <div className="space-y-3 overflow-y-auto pr-2">
+        <div className="overflow-y-auto flex-1 pr-2">
+          <div className="space-y-3">
             {storedModels.map((modelData, index) => (
               <div 
                 key={index} 

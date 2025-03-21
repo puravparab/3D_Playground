@@ -21,23 +21,24 @@ export function createGround() {
   const groundGeometry = new THREE.PlaneGeometry(100, 100)
   
   // Create material with the texture and use a more muted green color
-  // Reduced the brightness and saturation of the color
   const groundMaterial = new THREE.MeshStandardMaterial({ 
     map: groundTexture,
     color: 0x557755, // Darker, more muted green
     roughness: 1,
     metalness: 0,
-    // Lower the emissive intensity to reduce how bright it appears
     emissiveIntensity: 0.1
   })
   
   // Create the ground mesh
   const ground = new THREE.Mesh(groundGeometry, groundMaterial)
   ground.rotation.x = -Math.PI / 2 // Rotate to be horizontal
-  ground.position.y = -1
+  ground.position.y = 0 // Position at y=0 to be the reference ground level
   
   // Enable shadow receiving
   ground.receiveShadow = true
+  
+  // Add a collider property to identify it as ground
+  ground.userData.isGround = true
   
   return ground
 }
