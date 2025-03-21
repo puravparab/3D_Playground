@@ -37,6 +37,54 @@ export default function Scene() {
   const raycasterRef = useRef<THREE.Raycaster>(new THREE.Raycaster())
   const groundPlaneRef = useRef<THREE.Plane>(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0))
   
+  // Add effect to load model when modelUrl changes
+  useEffect(() => {
+    if (!modelUrl || !sceneRef.current) return;
+    
+    // Remove existing models
+    loadedModelsRef.current.forEach(model => {
+      sceneRef.current?.remove(model);
+    });
+    loadedModelsRef.current = [];
+    
+    // Load new model
+    const loader = new GLTFLoader();
+    loader.load(
+      modelUrl,
+      (gltf) => {
+        const model = gltf.scene;
+        
+        // Center the model
+        const box = new THREE.Box3().setFromObject(model);
+        const center = box.getCenter(new THREE.Vector3());
+        model.position.sub(center);
+        
+        // Scale the model to a reasonable size
+        const size = box.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const scale = 2 / maxDim;
+        model.scale.multiplyScalar(scale);
+        
+        // Add shadows
+        model.traverse((child) => {
+          if (child instanceof THREE.Mesh) {
+            child.castShadow = true;
+            child.receiveShadow = true;
+          }
+        });
+        
+        sceneRef.current?.add(model);
+        loadedModelsRef.current.push(model);
+      },
+      (progress) => {
+        console.log('Loading progress:', (progress.loaded / progress.total) * 100, '%');
+      },
+      (error) => {
+        console.error('Error loading model:', error);
+      }
+    );
+  }, [modelUrl]);
+  
   // Load data from local storage on mount
   useEffect(() => {
     const savedModels = localStorage.getItem('savedModels')
