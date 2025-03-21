@@ -27,9 +27,12 @@ export default function ModelPreviewPanel({
   const previewRef = useRef<HTMLDivElement>(null)
   const [isLoading, setIsLoading] = useState(true)
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null)
+  const modelObjectRef = useRef<THREE.Object3D | null>(null)
   
-  // This will hold references to the renderers for each model in history
+  // This will hold references to the renderers and models for each history item
   const historyRenderersRef = useRef<Map<number, THREE.WebGLRenderer>>(new Map())
+  const historyModelsRef = useRef<Map<number, THREE.Object3D>>(new Map())
+  const animationFramesRef = useRef<Map<number, number>>(new Map())
   
   useEffect(() => {
     if (!previewRef.current || !modelUrl) return
@@ -41,6 +44,11 @@ export default function ModelPreviewPanel({
       }
       rendererRef.current.dispose()
       rendererRef.current = null
+    }
+    
+    // Clean up any existing model
+    if (modelObjectRef.current) {
+      modelObjectRef.current = null
     }
     
     setIsLoading(true)
@@ -60,16 +68,25 @@ export default function ModelPreviewPanel({
     // Setup renderer
     const renderer = new THREE.WebGLRenderer({ antialias: true })
     renderer.setSize(width, height)
+    
+    // Fix for lighting (use linear encoding instead of sRGB which might not be supported)
+    renderer.outputColorSpace = THREE.SRGBColorSpace
+    
     rendererRef.current = renderer
     previewRef.current.appendChild(renderer.domElement)
     
-    // Add lights
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5)
+    // Add lights with higher intensity
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.0)
     scene.add(ambientLight)
     
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 1)
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5)
     directionalLight.position.set(0, 1, 1)
     scene.add(directionalLight)
+    
+    // Add a second directional light from another angle for better coverage
+    const directionalLight2 = new THREE.DirectionalLight(0xffffff, 1.0)
+    directionalLight2.position.set(1, 0, -1)
+    scene.add(directionalLight2)
     
     // Setup controls
     const controls = new OrbitControls(camera, renderer.domElement)
@@ -87,6 +104,7 @@ export default function ModelPreviewPanel({
       (gltf) => {
         // Model loaded successfully
         const model = gltf.scene
+        modelObjectRef.current = model
         
         // Center the model
         const box = new THREE.Box3().setFromObject(model)
@@ -169,7 +187,21 @@ export default function ModelPreviewPanel({
   
   // Effect to handle the 3D previews for history items
   useEffect(() => {
-    // Clean up all existing history renderers first
+    // Cancel all animation frames
+    animationFramesRef.current.forEach((frameId) => {
+      cancelAnimationFrame(frameId)
+    })
+    animationFramesRef.current.clear()
+    
+    // Clean up all existing history models
+    historyModelsRef.current.forEach((model) => {
+      if (model.parent) {
+        model.parent.remove(model)
+      }
+    })
+    historyModelsRef.current.clear()
+    
+    // Clean up all existing history renderers
     historyRenderersRef.current.forEach((renderer, index) => {
       const container = document.getElementById(`history-preview-${index}`)
       if (container && container.contains(renderer.domElement)) {
@@ -177,88 +209,115 @@ export default function ModelPreviewPanel({
       }
       renderer.dispose()
     })
-    
-    // Clear the map
     historyRenderersRef.current.clear()
     
-    // Create new renderers for each history item
-    storedModels.forEach((model, index) => {
-      const container = document.getElementById(`history-preview-${index}`)
-      if (!container) return
-      
-      // Create scene
-      const scene = new THREE.Scene()
-      scene.background = new THREE.Color(0xf0f0f0)
-      
-      // Get container dimensions
-      const width = container.clientWidth
-      const height = container.clientHeight
-      
-      // Setup camera
-      const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000)
-      camera.position.set(0, 0, 2)
-      
-      // Setup renderer
-      const renderer = new THREE.WebGLRenderer({ antialias: true })
-      renderer.setSize(width, height)
-      container.appendChild(renderer.domElement)
-      
-      // Store the renderer reference
-      historyRenderersRef.current.set(index, renderer)
-      
-      // Add lights
-      const ambientLight = new THREE.AmbientLight(0xffffff, 0.5)
-      scene.add(ambientLight)
-      
-      const directionalLight = new THREE.DirectionalLight(0xffffff, 1)
-      directionalLight.position.set(0, 1, 1)
-      scene.add(directionalLight)
-      
-      // Load the model
-      const loader = new GLTFLoader()
-      loader.load(
-        model.modelUrl,
-        (gltf) => {
-          // Model loaded successfully
-          const loadedModel = gltf.scene
-          
-          // Center the model
-          const box = new THREE.Box3().setFromObject(loadedModel)
-          const center = box.getCenter(new THREE.Vector3())
-          loadedModel.position.sub(center)
-          
-          // Scale the model to fit the preview
-          const size = box.getSize(new THREE.Vector3())
-          const maxDim = Math.max(size.x, size.y, size.z)
-          const scale = 1 / maxDim
-          loadedModel.scale.multiplyScalar(scale)
-          
-          // Add the model to the scene
-          scene.add(loadedModel)
-          
-          // Create a simple animation function
-          const animate = () => {
-            if (!historyRenderersRef.current.has(index)) return
+    // Create new renderers for each history item after a short delay
+    // to ensure the DOM elements are created
+    setTimeout(() => {
+      storedModels.forEach((model, index) => {
+        const container = document.getElementById(`history-preview-${index}`)
+        if (!container) return
+        
+        // Create scene
+        const scene = new THREE.Scene()
+        scene.background = new THREE.Color(0xf0f0f0)
+        
+        // Get container dimensions
+        const width = container.clientWidth
+        const height = container.clientHeight
+        
+        // Setup camera
+        const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000)
+        camera.position.set(0, 0, 2)
+        
+        // Setup renderer
+        const renderer = new THREE.WebGLRenderer({ antialias: true })
+        renderer.setSize(width, height)
+        
+        // Fix for lighting (use linear encoding instead of sRGB)
+        renderer.outputColorSpace = THREE.SRGBColorSpace
+        
+        container.appendChild(renderer.domElement)
+        
+        // Store the renderer reference
+        historyRenderersRef.current.set(index, renderer)
+        
+        // Add lights with higher intensity
+        const ambientLight = new THREE.AmbientLight(0xffffff, 1.0)
+        scene.add(ambientLight)
+        
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5)
+        directionalLight.position.set(0, 1, 1)
+        scene.add(directionalLight)
+        
+        // Add a second directional light from another angle
+        const directionalLight2 = new THREE.DirectionalLight(0xffffff, 1.0)
+        directionalLight2.position.set(1, 0, -1)
+        scene.add(directionalLight2)
+        
+        // Load the model
+        const loader = new GLTFLoader()
+        loader.load(
+          model.modelUrl,
+          (gltf) => {
+            // Model loaded successfully
+            const loadedModel = gltf.scene
             
-            requestAnimationFrame(animate)
+            // Store reference to the model
+            historyModelsRef.current.set(index, loadedModel)
             
-            // Gentle rotation
-            loadedModel.rotation.y += 0.01
+            // Center the model
+            const box = new THREE.Box3().setFromObject(loadedModel)
+            const center = box.getCenter(new THREE.Vector3())
+            loadedModel.position.sub(center)
             
-            renderer.render(scene, camera)
+            // Scale the model to fit the preview
+            const size = box.getSize(new THREE.Vector3())
+            const maxDim = Math.max(size.x, size.y, size.z)
+            const scale = 1 / maxDim
+            loadedModel.scale.multiplyScalar(scale)
+            
+            // Add the model to the scene
+            scene.add(loadedModel)
+            
+            // Create a simple animation function
+            const animate = () => {
+              const frameId = requestAnimationFrame(animate)
+              animationFramesRef.current.set(index, frameId)
+              
+              // Gentle rotation
+              loadedModel.rotation.y += 0.01
+              
+              renderer.render(scene, camera)
+            }
+            
+            animate()
+          },
+          undefined,
+          (error) => {
+            console.error('An error happened while loading history model:', error)
           }
-          
-          animate()
-        },
-        undefined,
-        (error) => {
-          console.error('An error happened while loading history model:', error)
-        }
-      )
-    })
+        )
+      })
+    }, 100) // Small delay to ensure DOM elements are ready
     
     // Cleanup
     return () => {
+      // Cancel all animation frames
+      animationFramesRef.current.forEach((frameId) => {
+        cancelAnimationFrame(frameId)
+      })
+      animationFramesRef.current.clear()
+      
+      // Clean up all models
+      historyModelsRef.current.forEach((model) => {
+        if (model.parent) {
+          model.parent.remove(model)
+        }
+      })
+      historyModelsRef.current.clear()
+      
+      // Clean up all renderers
       historyRenderersRef.current.forEach((renderer) => {
         renderer.dispose()
       })
@@ -271,6 +330,13 @@ export default function ModelPreviewPanel({
       e.dataTransfer.setData('text/plain', modelUrl)
       onDragStart()
     }
+  }
+  
+  const handleModelDragStart = (e: React.DragEvent, modelUrl: string) => {
+    e.dataTransfer.setData('text/plain', modelUrl)
+    onDragStart()
+    // Prevent event propagation to avoid parent handlers
+    e.stopPropagation()
   }
   
   const handleDownload = () => {
@@ -289,50 +355,42 @@ export default function ModelPreviewPanel({
   }
   
   return (
-    <div className="absolute right-6 top-6 w-80 bg-white bg-opacity-75 backdrop-blur-sm shadow-lg z-10 p-4 flex flex-col rounded-lg max-h-[85vh] overflow-hidden">
+    <div className="absolute right-6 top-6 w-80 bg-white bg-opacity-75 backdrop-blur-sm shadow-lg z-10 p-4 flex flex-col rounded-lg max-h-3/4 overflow-hidden">
       <h2 className="text-xl text-slate-700 font-bold mb-2">History</h2>
-      
-      <div 
-        className="flex-1 border border-gray-300 rounded-md overflow-hidden relative h-48"
-        ref={previewRef}
-      >
-        {isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-          </div>
-        )}
-      </div>
       
       {storedModels.length > 0 && (
         <div className="mt-4">
-          <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
-            {storedModels.map((model, index) => (
+          
+          <div className="space-y-3 overflow-y-auto pr-2">
+            {storedModels.map((modelData, index) => (
               <div 
                 key={index} 
                 className={`p-2 border rounded cursor-pointer transition-colors duration-200 ${
-                  model.modelUrl === modelUrl 
+                  modelData.modelUrl === modelUrl 
                     ? 'border-blue-500 bg-blue-50' 
                     : 'border-gray-300 hover:bg-blue-50 hover:border-blue-300'
                 }`}
-                onClick={() => onModelSelect(model)}
+                onClick={() => onModelSelect(modelData)}
               >
                 <div className="flex gap-2">
                   {/* 3D Preview container */}
                   <div 
                     id={`history-preview-${index}`}
-                    className="w-16 h-16 bg-gray-100 rounded overflow-hidden"
+                    className="w-16 h-16 bg-gray-100 rounded overflow-hidden cursor-move"
+                    draggable
+                    onDragStart={(e) => handleModelDragStart(e, modelData.modelUrl)}
                   ></div>
                   
                   {/* Info */}
                   <div className="flex-1 min-w-0">
                     <div className="font-medium text-slate-600 truncate">Model {index + 1}</div>
                     <div className="text-xs text-slate-500 mt-1">
-                      {new Date(model.timestamp).toLocaleString()}
+                      {new Date(modelData.timestamp).toLocaleString()}
                     </div>
                     
                     <div className="mt-2">
                       <a 
-                        href={model.modelUrl}
+                        href={modelData.modelUrl}
                         download={`model-${index + 1}.glb`}
                         className="inline-flex items-center px-2 py-1 text-xs font-medium text-green-800 bg-green-100 rounded hover:bg-green-200"
                         onClick={(e) => e.stopPropagation()}
