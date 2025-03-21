@@ -3,7 +3,7 @@ import * as THREE from 'three'
 export function createGround() {
   const textureLoader = new THREE.TextureLoader()
 
-  const groundTexture = textureLoader.load('/textures/grass.png')
+  const groundTexture = textureLoader.load('/textures/concrete.png')
   
   // Configure for seamless tiling with optimized settings
   groundTexture.wrapS = THREE.RepeatWrapping
@@ -24,7 +24,7 @@ export function createGround() {
   // Create material with enhanced green color
   const groundMaterial = new THREE.MeshStandardMaterial({ 
     map: groundTexture,
-    color: 0x4CAF50, // Brighter, more vibrant green
+    color: 0xffffff, // Brighter, more vibrant green
     roughness: 0.8,  // Slightly less rough for better light reflection
     metalness: 0.0,
     emissive: 0x1b5e20, // Subtle green emissive glow

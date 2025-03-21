@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 
 interface UploadPanelProps {
-  onUpload: (file: File) => void
+  onUpload: (file: File, modelType: string) => void
   isLoading: boolean
   initialPreviewUrl?: string | null
 }
@@ -12,6 +12,7 @@ export default function UploadPanel({ onUpload, isLoading, initialPreviewUrl }: 
   const [dragActive, setDragActive] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [selectedModel, setSelectedModel] = useState<'trellis' | 'hyper3d' | 'hunyuan'>('trellis')
   
   const handleFileChange = (file: File) => {
     if (file && file.type.startsWith('image/')) {
@@ -28,7 +29,7 @@ export default function UploadPanel({ onUpload, isLoading, initialPreviewUrl }: 
   
   const handleGenerateClick = () => {
     if (selectedFile) {
-      onUpload(selectedFile)
+      onUpload(selectedFile, selectedModel)
     }
   }
   
@@ -62,6 +63,24 @@ export default function UploadPanel({ onUpload, isLoading, initialPreviewUrl }: 
   return (
     <div className="absolute left-6 top-6 w-72 bg-white bg-opacity-75 backdrop-blur-sm shadow-lg z-10 p-4 flex flex-col rounded-lg">
       <h2 className="text-xl text-slate-700 font-bold mb-4">Upload Image</h2>
+      
+      {/* Model Selection */}
+      <div className="mb-4">
+        <label htmlFor="model-select" className="block text-sm font-medium text-gray-700 mb-1">
+          Select Model
+        </label>
+        <select
+          id="model-select"
+          value={selectedModel}
+          onChange={(e) => setSelectedModel(e.target.value as 'trellis' | 'hyper3d' | 'hunyuan')}
+          className="w-full px-3 py-2 border border-gray-300 text-slate-700 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 cursor-pointer"
+          disabled={isLoading}
+        >
+          <option value="trellis">Trellis (Fast)</option>
+          <option value="hyper3d">Hyper3D Rodin (High Quality)</option>
+          <option value="hunyuan">Hunyuan 3D (Versatile)</option>
+        </select>
+      </div>
       
       {previewUrl ? (
         <div className="mb-4 relative">
@@ -141,7 +160,7 @@ export default function UploadPanel({ onUpload, isLoading, initialPreviewUrl }: 
       {selectedFile && !isLoading && (
         <button
           onClick={handleGenerateClick}
-          className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200"
+          className="mt-4 w-full bg-violet-600 hover:bg-violet-800 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200 cursor-pointer"
         >
           Generate 3D Model
         </button>

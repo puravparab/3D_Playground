@@ -350,7 +350,7 @@ export default function Scene() {
     setControlPosition({ x, y });
   };
 
-  const handleImageUpload = async (file: File) => {
+  const handleImageUpload = async (file: File, modelType: string) => {
     try {
       setIsLoading(true);
       
@@ -358,9 +358,10 @@ export default function Scene() {
       const imageUrl = URL.createObjectURL(file);
       setImagePreviewUrl(imageUrl);
       
-      // Create a FormData object and append the file
+      // Create a FormData object and append the file and model type
       const formData = new FormData();
       formData.append('image', file);
+      formData.append('modelType', modelType);
       
       // Call your API route
       const response = await fetch('/api/create', {
