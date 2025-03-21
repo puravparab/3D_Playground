@@ -26,6 +26,7 @@ export default function ModelPreviewPanel({
 }: ModelPreviewPanelProps) {
   const previewRef = useRef<HTMLDivElement>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isHistoryCollapsed, setIsHistoryCollapsed] = useState(true)
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null)
   const modelObjectRef = useRef<THREE.Object3D | null>(null)
   
@@ -242,135 +243,124 @@ export default function ModelPreviewPanel({
       renderer.dispose()
     })
     historyRenderersRef.current.clear()
+
+    // Only proceed if the panel is expanded
+    if (isHistoryCollapsed) return
     
-    // Create new renderers for each history item after a short delay
-    // to ensure the DOM elements are created
-    setTimeout(() => {
-      storedModels.forEach((model, index) => {
-        const container = document.getElementById(`history-preview-${index}`)
-        if (!container) return
-        
-        // Create scene
-        const scene = new THREE.Scene()
-        // Make the background transparent
-        scene.background = null
-        
-        // Get container dimensions
-        const width = container.clientWidth
-        const height = container.clientHeight
-        
-        // Setup camera
-        const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000)
-        // Move camera closer to make model appear larger
-        camera.position.set(0, 0, 1.5)
-        
-        // Setup renderer with enhanced settings
-        const renderer = new THREE.WebGLRenderer({ 
-          antialias: true,
-          alpha: true,
-          preserveDrawingBuffer: true
-        })
-        renderer.setSize(width, height)
-        renderer.setClearColor(0x000000, 0) // Transparent background
-        renderer.shadowMap.enabled = true
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap
-        renderer.outputColorSpace = THREE.SRGBColorSpace
-        renderer.toneMapping = THREE.ACESFilmicToneMapping
-        renderer.toneMappingExposure = 1.2
-        
-        container.appendChild(renderer.domElement)
-        
-        // Store the renderer reference
-        historyRenderersRef.current.set(index, renderer)
-        
-        // Add lights with higher intensity
-        const ambientLight = new THREE.AmbientLight(0xffffff, 1.5)
-        scene.add(ambientLight)
-        
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 2.0)
-        directionalLight.position.set(1, 2, 1)
-        scene.add(directionalLight)
-        
-        // Add a second directional light from another angle
-        const directionalLight2 = new THREE.DirectionalLight(0xffffff, 1.5)
-        directionalLight2.position.set(-1, 1, -1)
-        scene.add(directionalLight2)
-        
-        // Add a hemispheric light for more natural illumination
-        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.0)
-        scene.add(hemiLight)
-        
-        // Load the model
-        const loader = new GLTFLoader()
-        loader.load(
-          model.modelUrl,
-          (gltf) => {
-            // Model loaded successfully
-            const loadedModel = gltf.scene
-            
-            // Store reference to the model
-            historyModelsRef.current.set(index, loadedModel)
-            
-            // Enable shadows and adjust material properties
-            loadedModel.traverse((node) => {
-              if (node instanceof THREE.Mesh) {
-                node.castShadow = true
-                node.receiveShadow = true
-                
-                // Adjust material properties
-                if (node.material instanceof THREE.MeshStandardMaterial) {
-                  node.material.roughness = 0.7;
-                  node.material.metalness = 0.3;
-                  node.material.envMapIntensity = 1.5;
-                }
-              }
-            })
-            
-            // Center the model
-            const box = new THREE.Box3().setFromObject(loadedModel)
-            const center = box.getCenter(new THREE.Vector3())
-            loadedModel.position.sub(center)
-            
-            // Scale the model to fit the preview, but make it larger
-            const size = box.getSize(new THREE.Vector3())
-            const maxDim = Math.max(size.x, size.y, size.z)
-            // Increase the scale factor to make the model larger (1.3 = 30% larger)
-            const scale = (1 / maxDim) * 1.6
-            loadedModel.scale.multiplyScalar(scale)
-            
-            // Add the model to the scene
-            scene.add(loadedModel)
-            
-            // Create a simple animation function
-            const animate = () => {
-              const frameId = requestAnimationFrame(animate)
-              animationFramesRef.current.set(index, frameId)
-              
-              // Gentle rotation
-              loadedModel.rotation.y += 0.01
-              
-              renderer.render(scene, camera)
-            }
-            
-            animate()
-          },
-          undefined,
-          (error) => {
-            console.error('An error happened while loading history model:', error)
-          }
-        )
+    // Create new renderers for each history item
+    storedModels.forEach((model, index) => {
+      const container = document.getElementById(`history-preview-${index}`)
+      if (!container) {
+        console.warn(`Container not found for model ${index}`)
+        return
+      }
+      
+      // Create scene
+      const scene = new THREE.Scene()
+      scene.background = null
+      
+      // Get container dimensions
+      const width = container.clientWidth
+      const height = container.clientHeight
+      
+      // Setup camera
+      const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000)
+      camera.position.set(0, 0, 1.5)
+      
+      // Setup renderer with enhanced settings
+      const renderer = new THREE.WebGLRenderer({ 
+        antialias: true,
+        alpha: true,
+        preserveDrawingBuffer: true,
+        powerPreference: "high-performance"
       })
-    }, 100) // Small delay to ensure DOM elements are ready
+      renderer.setSize(width, height)
+      renderer.setClearColor(0x000000, 0)
+      renderer.shadowMap.enabled = true
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap
+      renderer.outputColorSpace = THREE.SRGBColorSpace
+      renderer.toneMapping = THREE.ACESFilmicToneMapping
+      renderer.toneMappingExposure = 1.2
+      
+      container.appendChild(renderer.domElement)
+      historyRenderersRef.current.set(index, renderer)
+      
+      // Add lights
+      const ambientLight = new THREE.AmbientLight(0xffffff, 1.5)
+      scene.add(ambientLight)
+      
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 2.0)
+      directionalLight.position.set(1, 2, 1)
+      scene.add(directionalLight)
+      
+      const directionalLight2 = new THREE.DirectionalLight(0xffffff, 1.5)
+      directionalLight2.position.set(-1, 1, -1)
+      scene.add(directionalLight2)
+      
+      const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.0)
+      scene.add(hemiLight)
+      
+      // Load the model
+      const loader = new GLTFLoader()
+      loader.load(
+        model.modelUrl,
+        (gltf) => {
+          const loadedModel = gltf.scene
+          historyModelsRef.current.set(index, loadedModel)
+          
+          // Enable shadows and adjust material properties
+          loadedModel.traverse((node) => {
+            if (node instanceof THREE.Mesh) {
+              node.castShadow = true
+              node.receiveShadow = true
+              
+              if (node.material instanceof THREE.MeshStandardMaterial) {
+                node.material.roughness = 0.7
+                node.material.metalness = 0.3
+                node.material.envMapIntensity = 1.5
+                node.material.dithering = true
+                node.material.flatShading = true
+              }
+            }
+          })
+          
+          // Center and scale the model
+          const box = new THREE.Box3().setFromObject(loadedModel)
+          const center = box.getCenter(new THREE.Vector3())
+          loadedModel.position.sub(center)
+          
+          const size = box.getSize(new THREE.Vector3())
+          const maxDim = Math.max(size.x, size.y, size.z)
+          const scale = (1 / maxDim) * 1.6
+          loadedModel.scale.multiplyScalar(scale)
+          
+          scene.add(loadedModel)
+          
+          // Create animation function
+          const animate = () => {
+            const frameId = requestAnimationFrame(animate)
+            animationFramesRef.current.set(index, frameId)
+            
+            loadedModel.rotation.y += 0.01
+            renderer.render(scene, camera)
+          }
+          
+          animate()
+        },
+        undefined,
+        (error) => {
+          console.error(`Error loading history model ${index}:`, error)
+        }
+      )
+    })
     
     // Cleanup
     return () => {
-      // Cancel all animation frames
       animationFramesRef.current.forEach((frameId) => {
         cancelAnimationFrame(frameId)
       })
       animationFramesRef.current.clear()
       
-      // Clean up all models
       historyModelsRef.current.forEach((model) => {
         if (model.parent) {
           model.parent.remove(model)
@@ -378,13 +368,12 @@ export default function ModelPreviewPanel({
       })
       historyModelsRef.current.clear()
       
-      // Clean up all renderers
       historyRenderersRef.current.forEach((renderer) => {
         renderer.dispose()
       })
       historyRenderersRef.current.clear()
     }
-  }, [storedModels])
+  }, [storedModels, isHistoryCollapsed])
   
   const handleDragStart = (e: React.DragEvent) => {
     if (modelUrl) {
@@ -405,11 +394,30 @@ export default function ModelPreviewPanel({
   }
   
   return (
-    <div className="absolute right-6 top-6 w-80 bg-white bg-opacity-75 backdrop-blur-sm shadow-lg z-10 p-4 flex flex-col rounded-lg h-[calc(100vh-6rem)] overflow-hidden">
-      <h2 className="text-xl text-slate-700 font-bold mb-2">History</h2>
+    <div className={`absolute right-6 top-6 w-80 bg-white bg-opacity-90 backdrop-blur-sm shadow-lg z-10 flex flex-col rounded-lg transition-all duration-300 ${
+      isHistoryCollapsed ? 'h-14' : 'h-[calc(100vh-6rem)]'
+    } overflow-hidden`}>
+      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
+        <h2 className="text-lg font-semibold text-slate-700">History</h2>
+        <button
+          onClick={() => setIsHistoryCollapsed(!isHistoryCollapsed)}
+          className="p-1.5 hover:bg-slate-100 rounded-full transition-colors"
+          aria-label={isHistoryCollapsed ? "Expand history" : "Collapse history"}
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className={`h-5 w-5 transform transition-transform ${isHistoryCollapsed ? 'rotate-180' : ''}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+      </div>
       
-      {storedModels.length > 0 && (
-        <div className="overflow-y-auto flex-1 pr-2">
+      {!isHistoryCollapsed && storedModels.length > 0 && (
+        <div className="overflow-y-auto flex-1 p-4">
           <div className="space-y-3">
             {storedModels.map((modelData, index) => (
               <div 
