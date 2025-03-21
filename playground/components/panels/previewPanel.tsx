@@ -67,19 +67,23 @@ export default function ModelPreviewPanel({
     // Move camera closer to make model appear larger
     camera.position.set(0, 0, 1.5)
     
-    // Setup renderer with enhanced settings and alpha (transparency)
+    // Setup renderer with optimized settings
     const renderer = new THREE.WebGLRenderer({ 
       antialias: true,
       alpha: true,
-      preserveDrawingBuffer: true
+      preserveDrawingBuffer: true,
+      powerPreference: "high-performance",
+      stencil: false,
+      depth: true
     })
     renderer.setSize(width, height)
-    renderer.setClearColor(0x000000, 0) // Transparent background
+    renderer.setClearColor(0x000000, 0)
     renderer.shadowMap.enabled = true
     renderer.shadowMap.type = THREE.PCFSoftShadowMap
     renderer.outputColorSpace = THREE.SRGBColorSpace
     renderer.toneMapping = THREE.ACESFilmicToneMapping
     renderer.toneMappingExposure = 1.2
+    renderer.info.autoReset = false // Disable automatic info reset for better performance
     
     rendererRef.current = renderer
     previewRef.current.appendChild(renderer.domElement)
@@ -107,59 +111,53 @@ export default function ModelPreviewPanel({
     controls.dampingFactor = 0.25
     controls.enableZoom = true
     
-    // Setup animation loop variable to stop it when component unmounts
-    let animationFrameId: number
-    
     // Load the model
     const loader = new GLTFLoader()
     loader.load(
       modelUrl,
       (gltf) => {
-        // Model loaded successfully
         const model = gltf.scene
         modelObjectRef.current = model
         
-        // Enable shadows and adjust material properties for better lighting
+        // Optimize shadows and material properties
         model.traverse((node) => {
           if (node instanceof THREE.Mesh) {
             node.castShadow = true
             node.receiveShadow = true
             
-            // If it's using a MeshStandardMaterial, make sure it's not too dark
+            // Optimize material properties
             if (node.material instanceof THREE.MeshStandardMaterial) {
-              // Increase the material's lightness
-              node.material.roughness = 0.7;  // Lower is shinier
-              node.material.metalness = 0.3;  // Higher looks more metallic
-              node.material.envMapIntensity = 1.5; // Increase environment reflection
+              node.material.roughness = 0.7
+              node.material.metalness = 0.3
+              node.material.envMapIntensity = 1.5
+              node.material.dithering = true // Add dithering for smoother color transitions
+              node.material.flatShading = true // Use flat shading for better performance
             }
           }
         })
         
-        // Center the model
+        // Optimize model positioning and scaling
         const box = new THREE.Box3().setFromObject(model)
         const center = box.getCenter(new THREE.Vector3())
         model.position.sub(center)
         
-        // Scale the model to fit the preview, but make it larger
         const size = box.getSize(new THREE.Vector3())
         const maxDim = Math.max(size.x, size.y, size.z)
-        // Increase the scale factor to make the model larger (1.2 = 20% larger)
         const scale = (1 / maxDim) * 1.4
         model.scale.multiplyScalar(scale)
         
-        // Add the model to the scene
         scene.add(model)
         setIsLoading(false)
         
-        // Rotate the model slowly for a nice effect
+        // Optimize animation loop
         const animate = () => {
-          animationFrameId = requestAnimationFrame(animate)
-          
-          // Gentle rotation
-          model.rotation.y += 0.005
-          
-          controls.update()
-          renderer.render(scene, camera)
+          if (document.visibilityState === 'visible') {
+            model.rotation.y += 0.005
+            controls.update()
+            renderer.render(scene, camera)
+          }
+          const frameId = requestAnimationFrame(animate)
+          animationFramesRef.current.set(0, frameId) // Store the frame ID
         }
         
         animate()
@@ -188,14 +186,15 @@ export default function ModelPreviewPanel({
     
     window.addEventListener('resize', handleResize)
     
-    // Cleanup
+    // Optimize cleanup
     return () => {
       window.removeEventListener('resize', handleResize)
       
       // Stop animation loop
-      if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId)
-      }
+      animationFramesRef.current.forEach((frameId) => {
+        cancelAnimationFrame(frameId)
+      })
+      animationFramesRef.current.clear()
       
       // Dispose of resources
       controls.dispose()
@@ -212,6 +211,9 @@ export default function ModelPreviewPanel({
         rendererRef.current.dispose()
         rendererRef.current = null
       }
+      
+      // Clear references
+      modelObjectRef.current = null
     }
   }, [modelUrl])
   

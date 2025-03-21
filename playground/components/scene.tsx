@@ -84,11 +84,14 @@ export default function Scene() {
     camera.lookAt(0, 0, 0);
     cameraRef.current = camera;
     
-    // Renderer setup with enhanced settings
+    // Renderer setup with optimized settings
     const renderer = new THREE.WebGLRenderer({ 
       antialias: true,
       alpha: true,
-      preserveDrawingBuffer: true
+      preserveDrawingBuffer: true,
+      powerPreference: "high-performance",
+      stencil: false,
+      depth: true
     });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setClearColor(0x87CEEB);
@@ -96,7 +99,8 @@ export default function Scene() {
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.2; // Higher value makes scene brighter
+    renderer.toneMappingExposure = 1.2;
+    renderer.info.autoReset = false; // Disable automatic info reset for better performance
     mountRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
@@ -257,8 +261,16 @@ export default function Scene() {
     // Animation loop
     const animate = () => {
       requestAnimationFrame(animate);
-      orbitControls.update();
-      renderer.render(scene, camera);
+      
+      // Only update controls if they're enabled
+      if (orbitControls.enabled) {
+        orbitControls.update();
+      }
+      
+      // Only render if scene is visible
+      if (document.visibilityState === 'visible') {
+        renderer.render(scene, camera);
+      }
     };
     
     animate();
@@ -296,6 +308,15 @@ export default function Scene() {
       
       // Dispose the PMREM generator
       pmremGenerator.dispose();
+      
+      // Dispose renderer
+      renderer.dispose();
+      
+      // Clear any remaining references
+      sceneRef.current = null;
+      cameraRef.current = null;
+      rendererRef.current = null;
+      orbitControlsRef.current = null;
     };
   }, []); // Empty dependency array - only run once
   
