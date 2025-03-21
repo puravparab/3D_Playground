@@ -435,8 +435,8 @@ export default function Scene() {
         timestamp: Date.now()
       };
       
-      // Add to beginning of array and limit to 10 most recent
-      const updatedModels = [newModel, ...storedModels].slice(0, 10);
+      // Add to beginning of array without limit
+      const updatedModels = [newModel, ...storedModels];
       setStoredModels(updatedModels);
       
     } catch (error) {
@@ -517,6 +517,18 @@ export default function Scene() {
   const handleModelSelect = (modelData: StoredModelData) => {
     setModelUrl(modelData.modelUrl);
     setImagePreviewUrl(modelData.imageUrl);
+  };
+
+  const deleteSavedModel = (modelToDelete: StoredModelData) => {
+    // Remove the model from stored models
+    const updatedModels = storedModels.filter(model => model !== modelToDelete);
+    setStoredModels(updatedModels);
+    
+    // If the deleted model was the current one, clear the current model
+    if (modelToDelete.modelUrl === modelUrl) {
+      setModelUrl(null);
+      setImagePreviewUrl(null);
+    }
   };
   
   // Prevent UI clicks from propagating to the scene
@@ -601,6 +613,7 @@ export default function Scene() {
           storedModels={storedModels}
           onModelSelect={handleModelSelect} 
           onDragStart={() => {}} 
+          onDeleteModel={deleteSavedModel}
         />
       )}
       
