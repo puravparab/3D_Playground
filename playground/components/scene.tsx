@@ -63,10 +63,19 @@ export default function Scene() {
     camera.position.set(0, 5, 10)
     camera.lookAt(0, 0, 0)
     
-    // Renderer setup
-    const renderer = new THREE.WebGLRenderer({ antialias: true })
+    // Renderer setup with enhanced settings
+    const renderer = new THREE.WebGLRenderer({ 
+      antialias: true,
+      alpha: true,
+      preserveDrawingBuffer: true
+    })
     renderer.setSize(window.innerWidth, window.innerHeight)
     renderer.setClearColor(0x87CEEB)
+    renderer.shadowMap.enabled = true
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap
+    renderer.outputColorSpace = THREE.SRGBColorSpace
+    renderer.toneMapping = THREE.ACESFilmicToneMapping
+    renderer.toneMappingExposure = 1.2 // Higher value makes scene brighter
     mountRef.current.appendChild(renderer.domElement)
 
     // Setup controls
@@ -74,11 +83,24 @@ export default function Scene() {
     
     // Create environment
     const ground = createGround()
+    // Make sure ground receives shadows
+    if (ground instanceof THREE.Mesh) {
+      ground.receiveShadow = true;
+    }
+    
     const sky = createSky()
-    setupLights(scene)
+    const lights = setupLights(scene)
     
     scene.add(ground)
     scene.add(sky)
+    
+    // Optional: Add a simple environment map for better reflections
+    const pmremGenerator = new THREE.PMREMGenerator(renderer);
+    pmremGenerator.compileEquirectangularShader();
+    
+    // Create a simple environment map
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+    scene.add(ambientLight);
     
     // Window resize handler
     const handleResize = () => {
@@ -122,6 +144,9 @@ export default function Scene() {
       if (sky.material instanceof THREE.Material) {
         sky.material.dispose()
       }
+      
+      // Dispose the PMREM generator
+      pmremGenerator.dispose();
     }
   }, [])
 
@@ -186,13 +211,28 @@ export default function Scene() {
         modelUrl,
         (gltf) => {
           const model = gltf.scene
-          
+
+          // Enable shadows on all meshes in the model
+          model.traverse((node) => {
+            if (node instanceof THREE.Mesh) {
+              node.castShadow = true
+              node.receiveShadow = true
+              
+              // Adjust material properties if it's a MeshStandardMaterial
+              if (node.material instanceof THREE.MeshStandardMaterial) {
+                node.material.roughness = 0.7;
+                node.material.metalness = 0.3;
+                node.material.envMapIntensity = 1.5;
+              }
+            }
+          })
+
           // Position the model with some randomness so multiple models don't overlap
           const randomX = Math.random() * 4 - 2 // Random position between -2 and 2
           const randomZ = Math.random() * 4 - 2 // Random position between -2 and 2
           
           model.position.set(randomX, 1, randomZ)
-          model.scale.set(1, 1, 1) // Adjust scale as needed
+          model.scale.set(1, 1, 1)
           
           // Add the model to the scene
           sceneRef.current?.add(model)

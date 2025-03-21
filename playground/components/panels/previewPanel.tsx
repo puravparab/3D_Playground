@@ -55,7 +55,8 @@ export default function ModelPreviewPanel({
     
     // Create a small Three.js scene for the preview
     const scene = new THREE.Scene()
-    scene.background = new THREE.Color(0xf0f0f0)
+    // Make the background transparent
+    scene.background = null
     
     // Get container dimensions
     const width = previewRef.current.clientWidth
@@ -63,30 +64,42 @@ export default function ModelPreviewPanel({
     
     // Setup camera
     const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000)
-    camera.position.set(0, 0, 2)
+    // Move camera closer to make model appear larger
+    camera.position.set(0, 0, 1.5)
     
-    // Setup renderer
-    const renderer = new THREE.WebGLRenderer({ antialias: true })
+    // Setup renderer with enhanced settings and alpha (transparency)
+    const renderer = new THREE.WebGLRenderer({ 
+      antialias: true,
+      alpha: true,
+      preserveDrawingBuffer: true
+    })
     renderer.setSize(width, height)
-    
-    // Fix for lighting (use linear encoding instead of sRGB which might not be supported)
+    renderer.setClearColor(0x000000, 0) // Transparent background
+    renderer.shadowMap.enabled = true
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap
     renderer.outputColorSpace = THREE.SRGBColorSpace
+    renderer.toneMapping = THREE.ACESFilmicToneMapping
+    renderer.toneMappingExposure = 1.2
     
     rendererRef.current = renderer
     previewRef.current.appendChild(renderer.domElement)
     
     // Add lights with higher intensity
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1.0)
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.5)
     scene.add(ambientLight)
     
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5)
-    directionalLight.position.set(0, 1, 1)
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 2.0)
+    directionalLight.position.set(1, 2, 1)
     scene.add(directionalLight)
     
     // Add a second directional light from another angle for better coverage
-    const directionalLight2 = new THREE.DirectionalLight(0xffffff, 1.0)
-    directionalLight2.position.set(1, 0, -1)
+    const directionalLight2 = new THREE.DirectionalLight(0xffffff, 1.5)
+    directionalLight2.position.set(-1, 1, -1)
     scene.add(directionalLight2)
+    
+    // Add a hemispheric light for more natural illumination
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.0)
+    scene.add(hemiLight)
     
     // Setup controls
     const controls = new OrbitControls(camera, renderer.domElement)
@@ -106,15 +119,32 @@ export default function ModelPreviewPanel({
         const model = gltf.scene
         modelObjectRef.current = model
         
+        // Enable shadows and adjust material properties for better lighting
+        model.traverse((node) => {
+          if (node instanceof THREE.Mesh) {
+            node.castShadow = true
+            node.receiveShadow = true
+            
+            // If it's using a MeshStandardMaterial, make sure it's not too dark
+            if (node.material instanceof THREE.MeshStandardMaterial) {
+              // Increase the material's lightness
+              node.material.roughness = 0.7;  // Lower is shinier
+              node.material.metalness = 0.3;  // Higher looks more metallic
+              node.material.envMapIntensity = 1.5; // Increase environment reflection
+            }
+          }
+        })
+        
         // Center the model
         const box = new THREE.Box3().setFromObject(model)
         const center = box.getCenter(new THREE.Vector3())
         model.position.sub(center)
         
-        // Scale the model to fit the preview
+        // Scale the model to fit the preview, but make it larger
         const size = box.getSize(new THREE.Vector3())
         const maxDim = Math.max(size.x, size.y, size.z)
-        const scale = 1 / maxDim
+        // Increase the scale factor to make the model larger (1.2 = 20% larger)
+        const scale = (1 / maxDim) * 1.4
         model.scale.multiplyScalar(scale)
         
         // Add the model to the scene
@@ -220,7 +250,8 @@ export default function ModelPreviewPanel({
         
         // Create scene
         const scene = new THREE.Scene()
-        scene.background = new THREE.Color(0xf0f0f0)
+        // Make the background transparent
+        scene.background = null
         
         // Get container dimensions
         const width = container.clientWidth
@@ -228,14 +259,22 @@ export default function ModelPreviewPanel({
         
         // Setup camera
         const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000)
-        camera.position.set(0, 0, 2)
+        // Move camera closer to make model appear larger
+        camera.position.set(0, 0, 1.5)
         
-        // Setup renderer
-        const renderer = new THREE.WebGLRenderer({ antialias: true })
+        // Setup renderer with enhanced settings
+        const renderer = new THREE.WebGLRenderer({ 
+          antialias: true,
+          alpha: true,
+          preserveDrawingBuffer: true
+        })
         renderer.setSize(width, height)
-        
-        // Fix for lighting (use linear encoding instead of sRGB)
+        renderer.setClearColor(0x000000, 0) // Transparent background
+        renderer.shadowMap.enabled = true
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap
         renderer.outputColorSpace = THREE.SRGBColorSpace
+        renderer.toneMapping = THREE.ACESFilmicToneMapping
+        renderer.toneMappingExposure = 1.2
         
         container.appendChild(renderer.domElement)
         
@@ -243,17 +282,21 @@ export default function ModelPreviewPanel({
         historyRenderersRef.current.set(index, renderer)
         
         // Add lights with higher intensity
-        const ambientLight = new THREE.AmbientLight(0xffffff, 1.0)
+        const ambientLight = new THREE.AmbientLight(0xffffff, 1.5)
         scene.add(ambientLight)
         
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5)
-        directionalLight.position.set(0, 1, 1)
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 2.0)
+        directionalLight.position.set(1, 2, 1)
         scene.add(directionalLight)
         
         // Add a second directional light from another angle
-        const directionalLight2 = new THREE.DirectionalLight(0xffffff, 1.0)
-        directionalLight2.position.set(1, 0, -1)
+        const directionalLight2 = new THREE.DirectionalLight(0xffffff, 1.5)
+        directionalLight2.position.set(-1, 1, -1)
         scene.add(directionalLight2)
+        
+        // Add a hemispheric light for more natural illumination
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.0)
+        scene.add(hemiLight)
         
         // Load the model
         const loader = new GLTFLoader()
@@ -266,15 +309,31 @@ export default function ModelPreviewPanel({
             // Store reference to the model
             historyModelsRef.current.set(index, loadedModel)
             
+            // Enable shadows and adjust material properties
+            loadedModel.traverse((node) => {
+              if (node instanceof THREE.Mesh) {
+                node.castShadow = true
+                node.receiveShadow = true
+                
+                // Adjust material properties
+                if (node.material instanceof THREE.MeshStandardMaterial) {
+                  node.material.roughness = 0.7;
+                  node.material.metalness = 0.3;
+                  node.material.envMapIntensity = 1.5;
+                }
+              }
+            })
+            
             // Center the model
             const box = new THREE.Box3().setFromObject(loadedModel)
             const center = box.getCenter(new THREE.Vector3())
             loadedModel.position.sub(center)
             
-            // Scale the model to fit the preview
+            // Scale the model to fit the preview, but make it larger
             const size = box.getSize(new THREE.Vector3())
             const maxDim = Math.max(size.x, size.y, size.z)
-            const scale = 1 / maxDim
+            // Increase the scale factor to make the model larger (1.3 = 30% larger)
+            const scale = (1 / maxDim) * 1.6
             loadedModel.scale.multiplyScalar(scale)
             
             // Add the model to the scene
@@ -339,17 +398,6 @@ export default function ModelPreviewPanel({
     e.stopPropagation()
   }
   
-  const handleDownload = () => {
-    if (modelUrl) {
-      const link = document.createElement('a')
-      link.href = modelUrl
-      link.download = 'model.glb' // Default name
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-    }
-  }
-  
   if (!modelUrl) {
     return null
   }
@@ -373,10 +421,10 @@ export default function ModelPreviewPanel({
                 onClick={() => onModelSelect(modelData)}
               >
                 <div className="flex gap-2">
-                  {/* 3D Preview container */}
+                  {/* 3D Preview container with gradient background */}
                   <div 
                     id={`history-preview-${index}`}
-                    className="w-16 h-16 bg-gray-100 rounded overflow-hidden cursor-move"
+                    className="w-16 h-16 bg-gradient-to-br from-slate-100 to-slate-300 rounded overflow-hidden cursor-move"
                     draggable
                     onDragStart={(e) => handleModelDragStart(e, modelData.modelUrl)}
                   ></div>

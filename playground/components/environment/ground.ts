@@ -20,12 +20,15 @@ export function createGround() {
   // Create ground geometry
   const groundGeometry = new THREE.PlaneGeometry(100, 100)
   
-  // Create material with the texture and tint it green
+  // Create material with the texture and use a more muted green color
+  // Reduced the brightness and saturation of the color
   const groundMaterial = new THREE.MeshStandardMaterial({ 
     map: groundTexture,
-    color: 0x88FF88,
+    color: 0x557755, // Darker, more muted green
     roughness: 1,
-    metalness: 0
+    metalness: 0,
+    // Lower the emissive intensity to reduce how bright it appears
+    emissiveIntensity: 0.1
   })
   
   // Create the ground mesh
