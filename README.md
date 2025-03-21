@@ -1,8 +1,6 @@
 ## 3D Playground
 An experimental platform to generate and view 3D models
 
-## Demo
-
 <img src="assets/images/demo1.png" alt="Demo 1" width="400" />
 
 ## Getting Started
@@ -33,7 +31,5 @@ An experimental platform to generate and view 3D models
 1. Start the development server:
    ```bash
    npm run dev
-   # or
-   yarn dev
    ```
 2. Open [http://localhost:3000](http://localhost:3000) in your browser
