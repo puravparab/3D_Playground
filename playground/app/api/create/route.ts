@@ -27,7 +27,6 @@ export async function POST(request: NextRequest) {
 
     // Upload to fal storage and get URL
     const imageUrl = await fal.storage.upload(imageFile);
-    console.log(imageUrl)
     // Generate 3D model
     const result = await fal.subscribe("fal-ai/trellis", {
       input: {

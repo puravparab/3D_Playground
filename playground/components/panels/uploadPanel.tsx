@@ -1,23 +1,19 @@
 'use client'
 
-import { useState } from 'react'
-import Image from 'next/image'
+import { useState, useEffect } from 'react'
 
 interface UploadPanelProps {
   onUpload: (file: File) => void
   isLoading: boolean
+  initialPreviewUrl?: string | null
 }
 
-export default function UploadPanel({ onUpload, isLoading }: UploadPanelProps) {
+export default function UploadPanel({ onUpload, isLoading, initialPreviewUrl }: UploadPanelProps) {
   const [dragActive, setDragActive] = useState(false)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   
   const handleFileChange = (file: File) => {
     if (file && file.type.startsWith('image/')) {
-      // Create a preview URL for the image
-      const url = URL.createObjectURL(file)
-      setPreviewUrl(url)
       setSelectedFile(file)
     }
   }
@@ -69,31 +65,20 @@ export default function UploadPanel({ onUpload, isLoading }: UploadPanelProps) {
         onDrop={handleDrop}
       >
         <div className="space-y-1 text-center">
-          {previewUrl ? (
-            <div className="relative w-full h-40 mx-auto mb-4">
-              <Image 
-                src={previewUrl} 
-                alt="Preview" 
-                fill
-                style={{ objectFit: "contain" }}
-              />
-            </div>
-          ) : (
-            <svg
-              className="mx-auto h-12 w-12 text-gray-400"
-              stroke="currentColor"
-              fill="none"
-              viewBox="0 0 48 48"
-              aria-hidden="true"
-            >
-              <path
-                d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          )}
+          <svg
+            className="mx-auto h-12 w-12 text-gray-400"
+            stroke="currentColor"
+            fill="none"
+            viewBox="0 0 48 48"
+            aria-hidden="true"
+          >
+            <path
+              d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
           
           <div className="flex text-sm text-gray-600">
             <label
@@ -113,7 +98,13 @@ export default function UploadPanel({ onUpload, isLoading }: UploadPanelProps) {
             </label>
             <p className="pl-1">or drag and drop</p>
           </div>
-          <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
+          <p className="text-xs text-gray-500">PNG, JPG up to 10MB</p>
+          
+          {selectedFile && (
+            <p className="text-xs mt-2 text-green-600">
+              Selected: {selectedFile.name} ({Math.round(selectedFile.size / 1024)} KB)
+            </p>
+          )}
         </div>
       </div>
       

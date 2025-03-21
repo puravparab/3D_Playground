@@ -10,11 +10,46 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import UploadPanel from './panels/uploadPanel'
 import ModelPreviewPanel from './panels/previewPanel'
 
+// Define types for our stored data
+interface StoredModelData {
+  imageUrl: string;
+  modelUrl: string;
+  timestamp: number;
+}
+
 export default function Scene() {
   const mountRef = useRef<HTMLDivElement>(null)
   const sceneRef = useRef<THREE.Scene | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [modelUrl, setModelUrl] = useState<string | null>(null)
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null)
+  const [storedModels, setStoredModels] = useState<StoredModelData[]>([])
+  
+  // Load data from local storage on mount
+  useEffect(() => {
+    const savedModels = localStorage.getItem('savedModels')
+    if (savedModels) {
+      try {
+        const parsedModels = JSON.parse(savedModels) as StoredModelData[]
+        setStoredModels(parsedModels)
+        
+        // If we have saved models, set the most recent one as active
+        if (parsedModels.length > 0) {
+          // Sort by timestamp descending
+          const sortedModels = [...parsedModels].sort((a, b) => b.timestamp - a.timestamp)
+          setModelUrl(sortedModels[0].modelUrl)
+          setImagePreviewUrl(sortedModels[0].imageUrl)
+        }
+      } catch (error) {
+        console.error('Error parsing saved models:', error)
+      }
+    }
+  }, [])
+  
+  // Save to local storage whenever storedModels changes
+  useEffect(() => {
+    localStorage.setItem('savedModels', JSON.stringify(storedModels))
+  }, [storedModels])
   
   useEffect(() => {
     if (!mountRef.current) return
@@ -94,6 +129,10 @@ export default function Scene() {
     try {
       setIsLoading(true);
       
+      // Create a preview URL for the image
+      const imageUrl = URL.createObjectURL(file);
+      setImagePreviewUrl(imageUrl);
+      
       // Create a FormData object and append the file
       const formData = new FormData();
       formData.append('image', file);
@@ -110,8 +149,21 @@ export default function Scene() {
       }
       
       const result = await response.json();
-      console.log(await result)
-      setModelUrl(result.modelUrl);
+      console.log('API result:', result);
+      
+      const newModelUrl = result.modelUrl;
+      setModelUrl(newModelUrl);
+      
+      // Save to stored models
+      const newModel: StoredModelData = {
+        imageUrl: imageUrl,
+        modelUrl: newModelUrl,
+        timestamp: Date.now()
+      };
+      
+      // Add to beginning of array and limit to 10 most recent
+      const updatedModels = [newModel, ...storedModels].slice(0, 10);
+      setStoredModels(updatedModels);
       
     } catch (error) {
       console.error("Error generating 3D model:", error);
@@ -135,8 +187,11 @@ export default function Scene() {
         (gltf) => {
           const model = gltf.scene
           
-          // Position the model in the center of the scene
-          model.position.set(0, 1, 0)
+          // Position the model with some randomness so multiple models don't overlap
+          const randomX = Math.random() * 4 - 2 // Random position between -2 and 2
+          const randomZ = Math.random() * 4 - 2 // Random position between -2 and 2
+          
+          model.position.set(randomX, 1, randomZ)
           model.scale.set(1, 1, 1) // Adjust scale as needed
           
           // Add the model to the scene
@@ -156,6 +211,11 @@ export default function Scene() {
     e.preventDefault()
   }
   
+  const handleModelSelect = (modelData: StoredModelData) => {
+    setModelUrl(modelData.modelUrl);
+    setImagePreviewUrl(modelData.imageUrl);
+  }
+  
   return (
     <div 
       ref={mountRef} 
@@ -163,8 +223,20 @@ export default function Scene() {
       onDrop={handleDrop}
       onDragOver={handleDragOver}
     >
-      <UploadPanel onUpload={handleImageUpload} isLoading={isLoading} />
-      {modelUrl && <ModelPreviewPanel modelUrl={modelUrl} onDragStart={() => {}} />}
+      <UploadPanel 
+        onUpload={handleImageUpload} 
+        isLoading={isLoading} 
+        initialPreviewUrl={imagePreviewUrl}
+      />
+      
+      {modelUrl && (
+        <ModelPreviewPanel 
+          modelUrl={modelUrl} 
+          storedModels={storedModels}
+          onModelSelect={handleModelSelect} 
+          onDragStart={() => {}} 
+        />
+      )}
     </div>
   )
 }
